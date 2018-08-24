@@ -4,6 +4,9 @@ from __future__ import unicode_literals
 
 from django.forms.widgets import Select
 from django.forms.widgets import Textarea
+from django.utils.encoding import force_text
+from django.utils.html import conditional_escape
+from django.utils.html import escape
 
 
 # Originaly comes from https://djangosnippets.org/snippets/2453/
@@ -16,15 +19,34 @@ class SelectWithDisabled(Select):
 
     """
 
-    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+    def render_option(self, selected_choices, option_value, option_label):
+        option_value = force_text(option_value)
+        if (option_value in selected_choices):
+            selected_html = ' selected="selected"'
+        else:
+            selected_html = ''
+        disabled_html = ''
+        if isinstance(option_label, dict):
+            if dict.get(option_label, 'disabled'):
+                disabled_html = ' disabled="disabled"'
+            option_label = option_label['label']
+        return '<option value="%s"%s%s>%s</option>' % (
+            escape(option_value), selected_html, disabled_html,
+            conditional_escape(force_text(option_label)))
+
+    def create_option(self, name, option_value, option_label,
+                      selected, index, subindex=None, attrs=None):
+        label = option_label
         disabled = False
-        if isinstance(label, dict):
-            label, disabled = label['label'], label['disabled']
-        option_dict = super(SelectWithDisabled, self).create_option(
-            name, value, label, selected, index, subindex=subindex, attrs=attrs)
-        if disabled:
-            option_dict['attrs']['disabled'] = 'disabled'
-        return option_dict
+        if isinstance(option_label, dict):
+            if dict.get(option_label, 'disabled'):
+                disabled = True
+            label = option_label['label']
+        option = super(SelectWithDisabled, self).create_option(
+            name, option_value, label, selected, index, subindex, attrs
+        )
+        option['attrs']['disabled'] = disabled
+        return option
 
 
 class MarkdownTextareaWidget(Textarea):
